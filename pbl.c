@@ -1,10 +1,8 @@
-#define _USE_MATH_DEFINES
 #define SDL_MAIN_HANDLED
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_ttf.h>
 #include <math.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <time.h>
 
 #define W 1000
@@ -14,14 +12,14 @@
 #define MAX_RAIN 500
 #define MAX_ACTIVE_ARROWS 5
 
-struct Vec2 { double x, y; };
-struct Arrow { Vec2 pos, vel; int active; };
-struct Button { SDL_Rect rect; int state; const char* label; };
-struct Particle { double x, y, speed; int size; };
-struct RainDrop { double x, y, speed, length; int depth; };
+typedef struct { double x, y; } Vec2;
+typedef struct { Vec2 pos, vel; int active; } Arrow;
+typedef struct { SDL_Rect rect; int state; const char* label; } Button;
+typedef struct { double x, y, speed; int size; } Particle;
+typedef struct { double x, y, speed, length; int depth; } RainDrop;
 
-struct StuckArrow { double offsetY; double angle; };
-struct GroundArrow { double x, y, angle; };
+typedef struct { double offsetY; double angle; } StuckArrow;
+typedef struct { double x, y, angle; } GroundArrow;
 
 Arrow arrows[MAX_ACTIVE_ARROWS] = {0};
 Vec2 playerPos = {150, 450};
@@ -52,6 +50,7 @@ Button btnDist        = {{W - 215, 115, 120, 30}, 0, "KC: 800"};
 Button btnDistInc     = {{W - 90, 115, 30, 30}, 0, "->"};
 Button btnReset       = {{W - 250, 150, 190, 30}, 0, "  RESET MO PHONG"};
 Button btnPause       = {{W - 250, 185, 190, 30}, 0, "DUNG THOI GIAN (E)"};
+
 
 Button btnTimeDec     = {{W - 250, 220, 30, 30}, 0, "<-"};
 Button btnTime        = {{W - 215, 220, 120, 30}, 0, "TOC DO: 100%"};
@@ -132,6 +131,7 @@ void drawEarth(SDL_Renderer* ren, int cx, int cy, int r) {
     }
 }
 
+
 void drawBow(SDL_Renderer* ren, double cx, double cy, double angle, double pull_dist) {
     double bow_radius = 50.0 * cZ;
     for(double a = -1.2; a <= 1.2; a += 0.01) {
@@ -160,7 +160,7 @@ void drawBow(SDL_Renderer* ren, double cx, double cy, double angle, double pull_
     SDL_SetRenderDrawColor(ren, 255, 200, 50, 255);
     double tX = cx + cos(angle - 1.2) * bow_radius - cos(angle)*10*cZ; double tY = cy + sin(angle - 1.2) * bow_radius - sin(angle)*10*cZ;
     double bX = cx + cos(angle + 1.2) * bow_radius - cos(angle)*10*cZ; double bY = cy + sin(angle + 1.2) * bow_radius - sin(angle)*10*cZ;
-    int tipS = static_cast<int>(fmax(3, TS(6)));
+    int tipS = fmax(3, TS(6));
     SDL_Rect topTip = {(int)tX-tipS/2, (int)tY-tipS/2, tipS, tipS}; SDL_RenderFillRect(ren, &topTip);
     SDL_Rect botTip = {(int)bX-tipS/2, (int)bY-tipS/2, tipS, tipS}; SDL_RenderFillRect(ren, &botTip);
     
@@ -214,8 +214,8 @@ int main(int argc, char* argv[]) {
     SDL_RenderSetLogicalSize(ren, W, H);
     SDL_SetRenderDrawBlendMode(ren, SDL_BLENDMODE_BLEND);
 
-    for(int i=0; i<MAX_PARTICLES; i++) clouds[i] = Particle{(double)(rand()%10000), (double)(rand()%H), (rand()%50+50)/100.0, rand()%3+2};
-    for(int i=0; i<MAX_RAIN; i++) rain[i] = RainDrop{(double)(rand()%(W+400)-200), (double)(rand()%H), 15.0 + rand()%15, 10.0 + rand()%20, rand()%3 + 1};
+    for(int i=0; i<MAX_PARTICLES; i++) clouds[i] = (Particle){(double)(rand()%10000), (double)(rand()%H), (rand()%50+50)/100.0, rand()%3+2};
+    for(int i=0; i<MAX_RAIN; i++) rain[i] = (RainDrop){(double)(rand()%(W+400)-200), (double)(rand()%H), 15.0 + rand()%15, 10.0 + rand()%20, rand()%3 + 1};
 
     int running = 1, dragging = 0;
     Vec2 dragStart;
@@ -266,7 +266,7 @@ int main(int argc, char* argv[]) {
                     for(int i = 0; i < MAX_ACTIVE_ARROWS; i++) {
                         if(!arrows[i].active) {
                             arrows[i].pos = playerPos;
-                            arrows[i].vel = Vec2{curVX, curVY};
+                            arrows[i].vel = (Vec2){curVX, curVY};
                             arrows[i].active = 1;
                             maxVelocity = 0; impactVelocity = 0;
                             break;
@@ -301,7 +301,7 @@ int main(int argc, char* argv[]) {
                     else if (isClicked(btnWeather.rect, mx, my)) { isWeatherOn = !isWeatherOn; btnWeather.state = isWeatherOn; }
                     else if (isClicked(btnDistDec.rect, mx, my)) { targetPos.x -= 100; if(targetPos.x < 300) targetPos.x = 300; }
                     else if (isClicked(btnDistInc.rect, mx, my)) { targetPos.x += 100; if(targetPos.x > 50000) targetPos.x = 50000; }
-                    else { dragging = 1; dragStart = Vec2{(double)mx, (double)my}; }
+                    else { dragging = 1; dragStart = (Vec2){(double)mx, (double)my}; }
                 }
             }
             
@@ -313,7 +313,7 @@ int main(int argc, char* argv[]) {
                 if (arrowsLeft > 0 && !gameOver && activeCount == 0 && !isPaused) {
                     for(int i = 0; i < MAX_ACTIVE_ARROWS; i++) {
                         if(!arrows[i].active) {
-                            arrows[i].pos = playerPos; arrows[i].vel = Vec2{curVX, curVY};
+                            arrows[i].pos = playerPos; arrows[i].vel = (Vec2){curVX, curVY};
                             arrows[i].active = 1;
                             maxVelocity = 0; impactVelocity = 0;
                             break;
@@ -468,7 +468,7 @@ int main(int argc, char* argv[]) {
             int tStart = (int)floor(camLeft / t_width); int tEnd = (int)floor(camRight / t_width) + 1;
             for(int t = tStart; t <= tEnd; t++) {
                 int tx = TX(t * t_width + 80);
-                SDL_SetRenderDrawColor(ren, 139, 69, 19, 255); SDL_Rect t1 = {tx, TY(H - 150), static_cast<int>(fmax(1,TS(15))), TS(60)}; SDL_RenderFillRect(ren, &t1);
+                SDL_SetRenderDrawColor(ren, 139, 69, 19, 255); SDL_Rect t1 = {tx, TY(H - 150), fmax(1,TS(15)), TS(60)}; SDL_RenderFillRect(ren, &t1);
                 SDL_SetRenderDrawColor(ren, 0, 100, 0, 255); drawCircle(ren, tx + TS(7), TY(H - 150), TS(35)); drawCircle(ren, tx - TS(13), TY(H - 130), TS(25)); drawCircle(ren, tx + TS(27), TY(H - 130), TS(25));
             }
 
@@ -505,7 +505,7 @@ int main(int argc, char* argv[]) {
             SDL_SetRenderDrawColor(ren, 5, 5, 10, 255); SDL_RenderClear(ren); SDL_SetRenderDrawColor(ren, 255, 255, 255, 200);
             for(int i=0; i<MAX_PARTICLES; i++) {
                 double screenX = fmod(clouds[i].x - camLeft * 0.02, W); if (screenX < 0) screenX += W;
-                SDL_Rect r = {(int)screenX, (int)clouds[i].y, static_cast<int>(fmax(1,TS(2))), static_cast<int>(fmax(1,TS(2)))}; SDL_RenderFillRect(ren, &r);
+                SDL_Rect r = {(int)screenX, (int)clouds[i].y, fmax(1,TS(2)), fmax(1,TS(2))}; SDL_RenderFillRect(ren, &r);
             }
             drawEarth(ren, W/2, 220, 65);
             
@@ -528,7 +528,7 @@ int main(int argc, char* argv[]) {
         }
 
         SDL_SetRenderDrawColor(ren, 218, 165, 32, 255);
-        SDL_Rect rim = {static_cast<int>(TX(targetPos.x) - fmax(1,TS(10))), TY(targetPos.y - 85), static_cast<int>(fmax(2,TS(20))), static_cast<int>(fmax(2,TS(170)))};
+        SDL_Rect rim = {TX(targetPos.x) - fmax(1,TS(10)), TY(targetPos.y - 85), fmax(2,TS(20)), fmax(2,TS(170))};
         SDL_RenderFillRect(ren, &rim);
         SDL_SetRenderDrawColor(ren, 0, 0, 0, 255); SDL_RenderDrawRect(ren, &rim);
 
@@ -536,7 +536,7 @@ int main(int argc, char* argv[]) {
         int targetHeights[5] = {150, 110, 70, 40, 10};
         for (int i = 0; i < 5; i++) {
             SDL_SetRenderDrawColor(ren, targetColors[i][0], targetColors[i][1], targetColors[i][2], 255);
-            SDL_Rect tr = {static_cast<int>(TX(targetPos.x) - fmax(1,TS(7))), TY(targetPos.y - targetHeights[i]/2), static_cast<int>(fmax(2,TS(14))), static_cast<int>(fmax(2,TS(targetHeights[i])))};
+            SDL_Rect tr = {TX(targetPos.x) - fmax(1,TS(7)), TY(targetPos.y - targetHeights[i]/2), fmax(2,TS(14)), fmax(2,TS(targetHeights[i]))};
             SDL_RenderFillRect(ren, &tr);
             SDL_SetRenderDrawColor(ren, 0, 0, 0, 100); SDL_RenderDrawRect(ren, &tr); 
         }
@@ -570,10 +570,10 @@ int main(int argc, char* argv[]) {
                     double fact = (faceX - prevX) / (simX - prevX);
                     double colY = prevY + fact * (simY - prevY);
                     if (fabs(colY - targetPos.y) <= 75) {
-                        drawCircle(ren, TX(faceX), TY(colY), static_cast<int>(fmax(1, TS(3)))); break;
+                        drawCircle(ren, TX(faceX), TY(colY), fmax(1, TS(3))); break;
                     }
                 }
-                drawCircle(ren, TX(simX), TY(simY), static_cast<int>(fmax(1, TS(3))));
+                drawCircle(ren, TX(simX), TY(simY), fmax(1, TS(3)));
                 if (simX > camRight || simY > H+1000 || simX < camLeft) break;
             }
         }
@@ -670,10 +670,10 @@ int main(int argc, char* argv[]) {
         sprintf(strGuide, "[Z/X]: +-1 | [< / >]: +-10 | [C/V]: +-100 | [B/N]: +-1000 | [ESC] Thoat");
         sprintf(strFormula, ">> Nhan [SPACE] hoac [CHUOT] de BAN <<");
 
-        SDL_Color textColor = (envMode == 0) ? SDL_Color{255, 255, 255, 255} : colorWhite;
+        SDL_Color textColor = (envMode == 0) ? (SDL_Color){255, 255, 255, 255} : colorWhite;
         renderTextOutline(ren, fontLarge, strInput, 20, H - 90, textColor);
         renderTextOutline(ren, font, strGuide, 20, H - 55, textColor);
-        renderTextOutline(ren, fontLarge, strFormula, 20, H - 35, SDL_Color{255, 100, 100, 255});
+        renderTextOutline(ren, fontLarge, strFormula, 20, H - 35, (SDL_Color){255, 100, 100, 255});
         SDL_RenderPresent(ren); SDL_Delay(16);
     }
     
