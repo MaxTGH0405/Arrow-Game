@@ -214,6 +214,8 @@ int main(int argc, char* argv[]) {
     double px2m = 9.8 / 800.0;
     double m2px = 800.0 / 9.8;
 
+    targetPos.x = playerPos.x + 10.0 * m2px;
+
     SDL_Window* win = SDL_CreateWindow("MO PHONG CHUYEN DONG MUI TEN", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, W, H, SDL_WINDOW_FULLSCREEN_DESKTOP);
     SDL_Renderer* ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
     
@@ -320,8 +322,8 @@ int main(int argc, char* argv[]) {
                     else if (isClicked(btnEnv.rect, mx, my)) { envMode = (envMode + 1) % 4; windForce = 0; btnWind.state = 0; btnEnv.label = envMode == 0 ? "ENV: EARTH" : envMode == 1 ? "ENV: WATER" : envMode == 2 ? "ENV: MOON" : "ENV: SPACE"; }
                     else if (isClicked(btnTraceToggle.rect, mx, my)) { btnTraceToggle.state = !btnTraceToggle.state; traceEnv = btnTraceToggle.state; }
                     else if (isClicked(btnWeather.rect, mx, my)) { isWeatherOn = !isWeatherOn; btnWeather.state = isWeatherOn; }
-                    else if (isClicked(btnDistDec.rect, mx, my)) { targetPos.x -= 10.0 * m2px; if(targetPos.x < playerPos.x + 10.0 * m2px) targetPos.x = playerPos.x + 10.0 * m2px; }
-                    else if (isClicked(btnDistInc.rect, mx, my)) { targetPos.x += 10.0 * m2px; if(targetPos.x > 500000) targetPos.x = 500000; }
+                    else if (isClicked(btnDistDec.rect, mx, my)) { targetPos.x -= 5.0 * m2px; if(targetPos.x < playerPos.x + 5.0 * m2px) targetPos.x = playerPos.x + 5.0 * m2px; }
+                    else if (isClicked(btnDistInc.rect, mx, my)) { targetPos.x += 5.0 * m2px; if(targetPos.x > 500000) targetPos.x = 500000; }
                     else { dragging = 1; dragStart = (Vec2){(double)mx, (double)my}; }
                 }
             }
