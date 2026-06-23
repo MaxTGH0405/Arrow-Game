@@ -7,7 +7,9 @@
 
 #define W 1000
 #define H 600
-#define G_EARTH 800.0
+#define G_EARTH 9.8
+#define M2PX (800.0 / 9.8)
+#define PX2M (9.8 / 800.0)
 #define MAX_PARTICLES 150
 #define MAX_RAIN 500
 #define MAX_ACTIVE_ARROWS 5
@@ -35,6 +37,9 @@ int numStuck = 0;
 GroundArrow groundArrows[1000];
 int numGroundArrows = 0;
 
+double maxDistTracker = 0.0;
+double maxHeightTracker = 0.0;
+
 Button btnWind    = {{10, 10, 110, 30}, 0, "GIO: OFF"};
 Button btnWindDec = {{125, 10, 30, 30}, 0, "<-"};
 Button btnWindInc = {{160, 10, 30, 30}, 0, "->"};
@@ -50,7 +55,6 @@ Button btnDist        = {{W - 215, 115, 120, 30}, 0, "KC: 800"};
 Button btnDistInc     = {{W - 90, 115, 30, 30}, 0, "->"};
 Button btnReset       = {{W - 250, 150, 190, 30}, 0, "  RESET MO PHONG"};
 Button btnPause       = {{W - 250, 185, 190, 30}, 0, "DUNG THOI GIAN (E)"};
-
 
 Button btnTimeDec     = {{W - 250, 220, 30, 30}, 0, "<-"};
 Button btnTime        = {{W - 215, 220, 120, 30}, 0, "TOC DO: 100%"};
@@ -130,7 +134,6 @@ void drawEarth(SDL_Renderer* ren, int cx, int cy, int r) {
         }
     }
 }
-
 
 void drawBow(SDL_Renderer* ren, double cx, double cy, double angle, double pull_dist) {
     double bow_radius = 50.0 * cZ;
@@ -235,15 +238,27 @@ int main(int argc, char* argv[]) {
                 if (e.key.keysym.sym == SDLK_UP) inputAngle = (inputAngle < 90) ? inputAngle + 1 : 90;
                 if (e.key.keysym.sym == SDLK_DOWN) inputAngle = (inputAngle > -90) ? inputAngle - 1 : -90;
 
-                if (e.key.keysym.sym == SDLK_z) inputForce -= 1;
-                if (e.key.keysym.sym == SDLK_x) inputForce += 1;
-                if (e.key.keysym.sym == SDLK_LEFT) inputForce -= 10;
-                if (e.key.keysym.sym == SDLK_RIGHT) inputForce += 10;
-                if (e.key.keysym.sym == SDLK_c) inputForce -= 100;
-                if (e.key.keysym.sym == SDLK_v) inputForce += 100;
-                if (e.key.keysym.sym == SDLK_b) inputForce -= 1000;
-                if (e.key.keysym.sym == SDLK_n) inputForce += 1000;
-                if (inputForce < 0) inputForce = 0;
+                double ms = round(inputForce * PX2M * 10.0) / 10.0;
+                
+                if (e.key.keysym.sym == SDLK_LEFT) ms -= 0.1;
+                if (e.key.keysym.sym == SDLK_RIGHT) ms += 0.1;
+                if (e.key.keysym.sym == SDLK_z) ms -= 1.0;
+                if (e.key.keysym.sym == SDLK_x) ms += 1.0;
+                if (e.key.keysym.sym == SDLK_c) ms -= 10.0;
+                if (e.key.keysym.sym == SDLK_v) ms += 10.0;
+                if (e.key.keysym.sym == SDLK_b) ms -= 100.0;
+                if (e.key.keysym.sym == SDLK_n) ms += 100.0;
+                if (e.key.keysym.sym == SDLK_j) ms -= 1000.0;
+                if (e.key.keysym.sym == SDLK_k) ms += 1000.0;
+                if (ms < 0) ms = 0;
+                
+                if (e.key.keysym.sym == SDLK_LEFT || e.key.keysym.sym == SDLK_RIGHT ||
+                    e.key.keysym.sym == SDLK_z || e.key.keysym.sym == SDLK_x ||
+                    e.key.keysym.sym == SDLK_c || e.key.keysym.sym == SDLK_v ||
+                    e.key.keysym.sym == SDLK_b || e.key.keysym.sym == SDLK_n ||
+                    e.key.keysym.sym == SDLK_j || e.key.keysym.sym == SDLK_k) {
+                    inputForce = ms * M2PX;
+                }
                 
                 if (e.key.keysym.sym == SDLK_a) { windForce -= 20; btnWind.state = (windForce != 0); }
                 if (e.key.keysym.sym == SDLK_d) { windForce += 20; btnWind.state = (windForce != 0); }
@@ -263,6 +278,9 @@ int main(int argc, char* argv[]) {
                     double rad = inputAngle * M_PI / 180.0;
                     curVX = inputForce * cos(rad); curVY = -inputForce * sin(rad);
                     
+                    maxDistTracker = 0.0;
+                    maxHeightTracker = 0.0;
+
                     for(int i = 0; i < MAX_ACTIVE_ARROWS; i++) {
                         if(!arrows[i].active) {
                             arrows[i].pos = playerPos;
@@ -311,6 +329,8 @@ int main(int argc, char* argv[]) {
                 int activeCount = 0;
                 for(int i = 0; i < MAX_ACTIVE_ARROWS; i++) if(arrows[i].active) activeCount++;
                 if (arrowsLeft > 0 && !gameOver && activeCount == 0 && !isPaused) {
+                    maxDistTracker = 0.0;
+                    maxHeightTracker = 0.0;
                     for(int i = 0; i < MAX_ACTIVE_ARROWS; i++) {
                         if(!arrows[i].active) {
                             arrows[i].pos = playerPos; arrows[i].vel = (Vec2){curVX, curVY};
@@ -344,7 +364,7 @@ int main(int argc, char* argv[]) {
         btnTraceToggle.label = traceEnv ? "TRACER: ON" : "TRACER: OFF";
         btnWeather.label = isWeatherOn ? "WEATHER: ON" : "WEATHER: OFF";
 
-        double currentG = G_EARTH;
+        double currentG = G_EARTH * M2PX;
         double base_friction = btnDrag.state ? 0.0005 : 0.0;
         double rainPushForce = 0.0;
         
@@ -354,8 +374,8 @@ int main(int argc, char* argv[]) {
         }
         
         double friction = base_friction;
-        if (envMode == 1) { currentG = G_EARTH * 0.3; friction = btnDrag.state ? base_friction * 900.0 : 0.0; }
-        else if (envMode == 2) { currentG = G_EARTH * 1/6.0; friction = 0.0; } 
+        if (envMode == 1) { currentG = (G_EARTH * 0.3) * M2PX; friction = btnDrag.state ? base_friction * 900.0 : 0.0; }
+        else if (envMode == 2) { currentG = (G_EARTH * 1/6.0) * M2PX; friction = 0.0; } 
         else if (envMode == 3) { currentG = 0.0; friction = 0.0; }
 
         double dt = 0.016 * (timeScale / 100.0);
@@ -368,22 +388,28 @@ int main(int argc, char* argv[]) {
             double scale = timeScale / 100.0;
             double dt_calc = 0.016 * scale;
             for(int k = 0; k < MAX_ACTIVE_ARROWS; k++) {
-            if (arrows[k].active) {
-    double prevX = arrows[k].pos.x; double prevY = arrows[k].pos.y;
-    
-    double oldVx = arrows[k].vel.x;
-    double oldVy = arrows[k].vel.y;
+                if (arrows[k].active) {
+                    double prevX = arrows[k].pos.x; double prevY = arrows[k].pos.y;
+                    
+                    double oldVx = arrows[k].vel.x;
+                    double oldVy = arrows[k].vel.y;
 
-    arrows[k].vel.x -= arrows[k].vel.x * friction * scale;
-    arrows[k].vel.y -= arrows[k].vel.y * friction * scale;
-    arrows[k].vel.y += (currentG + rainPushForce) * dt_calc;
-    if(envMode == 0) arrows[k].vel.x += windForce * 0.05 * scale;
+                    arrows[k].vel.x -= arrows[k].vel.x * friction * scale;
+                    arrows[k].vel.y -= arrows[k].vel.y * friction * scale;
+                    arrows[k].vel.y += (currentG + rainPushForce) * dt_calc;
+                    if(envMode == 0) arrows[k].vel.x += windForce * 0.05 * scale;
 
-    double currentSpeed = sqrt(arrows[k].vel.x*arrows[k].vel.x + arrows[k].vel.y*arrows[k].vel.y);
-    if (currentSpeed > maxVelocity) maxVelocity = currentSpeed;
+                    double currentSpeed = sqrt(arrows[k].vel.x*arrows[k].vel.x + arrows[k].vel.y*arrows[k].vel.y);
+                    if (currentSpeed > maxVelocity) maxVelocity = currentSpeed;
 
-    arrows[k].pos.x += (oldVx + arrows[k].vel.x) * 0.5 * dt_calc;
-    arrows[k].pos.y += (oldVy + arrows[k].vel.y) * 0.5 * dt_calc;
+                    arrows[k].pos.x += (oldVx + arrows[k].vel.x) * 0.5 * dt_calc;
+                    arrows[k].pos.y += (oldVy + arrows[k].vel.y) * 0.5 * dt_calc;
+
+                    double currentH = 450.0 - arrows[k].pos.y;
+                    if (currentH > maxHeightTracker) maxHeightTracker = currentH;
+                    
+                    double currentD = arrows[k].pos.x - 150.0;
+                    if (currentD > maxDistTracker) maxDistTracker = currentD;
 
                     double nextX = arrows[k].pos.x; double nextY = arrows[k].pos.y;
                     double ang_col = atan2(arrows[k].vel.y, arrows[k].vel.x);
@@ -549,21 +575,21 @@ int main(int argc, char* argv[]) {
             double simG_trace = currentG, simFriction_trace = friction;
             double simWind_trace = (envMode == 0) ? windForce : 0;
 
-    SDL_SetRenderDrawColor(ren, 255, 255, 255, 255);
-        for (int i = 0; i < 25; i++) {
-            double prevX = simX, prevY = simY;
-        for (int step = 0; step < 4; step++) {
-            double oldSimVx = simVX;
-            double oldSimVy = simVY;
+            SDL_SetRenderDrawColor(ren, 255, 255, 255, 255);
+            for (int i = 0; i < 25; i++) {
+                double prevX = simX, prevY = simY;
+                for (int step = 0; step < 4; step++) {
+                    double oldSimVx = simVX;
+                    double oldSimVy = simVY;
 
-            simVX -= simVX * simFriction_trace; 
-            simVY -= simVY * simFriction_trace;
-            simVY += (simG_trace + rainPushForce) * 0.016; 
-            simVX += simWind_trace * 0.05;
+                    simVX -= simVX * simFriction_trace; 
+                    simVY -= simVY * simFriction_trace;
+                    simVY += (simG_trace + rainPushForce) * 0.016; 
+                    simVX += simWind_trace * 0.05;
 
-        simX += (oldSimVx + simVX) * 0.5 * 0.016;
-        simY += (oldSimVy + simVY) * 0.5 * 0.016;
-    }
+                    simX += (oldSimVx + simVX) * 0.5 * 0.016;
+                    simY += (oldSimVy + simVY) * 0.5 * 0.016;
+                }
                 
                 double faceX = (simVX >= 0) ? (targetPos.x - 7.0) : (targetPos.x + 7.0);
                 if ((prevX < faceX && simX >= faceX) || (prevX > faceX && simX <= faceX)) {
@@ -608,7 +634,7 @@ int main(int argc, char* argv[]) {
 
         char strScore[64], strVel[128];
         sprintf(strScore, "DIEM CUA MUI TEN VUA BAN: %d", score);
-        sprintf(strVel, "V_max: %.1f | V_tt: %.1f", maxVelocity, impactVelocity);
+        sprintf(strVel, "V_max: %.1f m/s | V_tt: %.1f m/s", maxVelocity * PX2M, impactVelocity * PX2M);
         
         renderTextOutline(ren, font, strScore, W - 265, 25, colorWhite);
         renderTextOutline(ren, fontFormula, strVel, W - 265, 55, colorWhite);
@@ -642,32 +668,33 @@ int main(int argc, char* argv[]) {
         }
 
         if (isTracking) {
-            sprintf(f_buf[0], "1. v_total hien tai = %.1f px/s", dispVel);
-            sprintf(f_buf[1], "2. Goc bay hien tai = %.1f do", dispAngle);
+            sprintf(f_buf[0], "1. V total (Hien tai) = %.1f m/s", dispVel * PX2M);
+            sprintf(f_buf[1], "2. Goc bay (Hien tai) = %.1f do", dispAngle);
+            sprintf(f_buf[8], "9. Khoang cach bay = %.1f m", maxDistTracker * PX2M);
+            sprintf(f_buf[9], "10. Do cao max = %.1f m", maxHeightTracker * PX2M);
         } else {
-            sprintf(f_buf[0], "1. v_total (Du kien) = %.1f px/s", dispVel);
+            sprintf(f_buf[0], "1. V total (Du kien) = %.1f m/s", dispVel * PX2M);
             sprintf(f_buf[1], "2. Goc ban (Du kien) = %.1f do", dispAngle);
+            double th_vy = dispVel * sin(dispAngle * M_PI / 180.0);
+            double th_vx = dispVel * cos(dispAngle * M_PI / 180.0);
+            double th_h = (th_vy > 0 && currentG > 0) ? (th_vy * th_vy) / (2 * currentG) : 0;
+            double th_d = (th_vy > 0 && currentG > 0) ? (th_vx * 2 * th_vy) / currentG : 0;
+            sprintf(f_buf[8], "9. Khoang cach (Du kien) = %.1f m", th_d * PX2M);
+            sprintf(f_buf[9], "10. Do cao max (Du kien) = %.1f m", th_h * PX2M);
         }
 
-        sprintf(f_buf[2], "3. v_x = %.1f * cos(%.1f do) = %.1f", dispVel, dispAngle, v_x_rt);
-        sprintf(f_buf[3], "4. v_y = %.1f * sin(%.1f do) = %.1f", dispVel, dispAngle, v_y_rt);
-        sprintf(f_buf[4], "5. Luc can (F_Can) = %.5f", friction);
-        sprintf(f_buf[5], "6. Gia toc G = %.1f", currentG);
-        sprintf(f_buf[6], "7. Luc ep Mua (F_Push) = %.1f", rainPushForce);
-        sprintf(f_buf[7], "8. Luc can Nuoc (F_nuoc) = 900 * F_can", rainPushForce);
+        sprintf(f_buf[2], "3. v_x = %.1f m/s", v_x_rt * PX2M);
+        sprintf(f_buf[3], "4. v_y = %.1f m/s", fabs(v_y_rt) * PX2M);
+        sprintf(f_buf[4], "5. Luc can (F_can) = %.5f", friction);
+        sprintf(f_buf[5], "6. Gia toc G = %.2f m/s^2", currentG * PX2M);
+        sprintf(f_buf[6], "7. Luc ep mua (F_push) = %.2f m/s^2", rainPushForce * PX2M);
+        sprintf(f_buf[7], "8. Luc can nuoc = %.5f", (envMode == 1 && btnDrag.state) ? friction : 0.0);
         
-        double dt_calc = 0.016 * (timeScale / 100.0);
-        double dvy = -(currentG + rainPushForce) * dt_calc; 
-        double dvx = windForce * (0.05 * (timeScale / 100.0));
-        
-        sprintf(f_buf[8], "9. v_y(next) = %.1f - %.1f*%.4f + (%.1f) = %.1f", v_y_rt, v_y_rt, friction, dvy, v_y_rt - v_y_rt*friction + dvy);
-        sprintf(f_buf[9], "10. v_x(next) = %.1f - %.1f*%.4f + (%.1f) = %.1f", v_x_rt, v_x_rt, friction, dvx, v_x_rt - v_x_rt*friction + dvx);
-
         for (int z = 0; z < 10; z++) renderTextOutline(ren, fontFormula, f_buf[z], fx - 60, fy + 30 + z*20, colorWhite);
 
         char strInput[128], strGuide[128], strFormula[128];
-        sprintf(strInput, "Goc: %.1f do | Luc: %.1f", uiAngle, uiForce);
-        sprintf(strGuide, "[Z/X]: +-1 | [< / >]: +-10 | [C/V]: +-100 | [B/N]: +-1000 | [ESC] Thoat");
+        sprintf(strInput, "Goc: %.1f do | Luc: %.1f m/s", uiAngle, uiForce * PX2M);
+        sprintf(strGuide, "[<- / ->]: +-0.1 | [Z/X]: +-1 | [C/V]: +-10 | [B/N]: +-100 | [J/K]: +-1000 | [ESC] Thoat");
         sprintf(strFormula, ">> Nhan [SPACE] hoac [CHUOT] de BAN <<");
 
         SDL_Color textColor = (envMode == 0) ? (SDL_Color){255, 255, 255, 255} : colorWhite;
